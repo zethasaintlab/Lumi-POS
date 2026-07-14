@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+/* Lumi-POS design tokens (docs/design-system-lumi-pos.md).
+   Light mode only — dark mode is undecided for v1. */
+@theme {
+  --color-paper: #e8ebe9;
+  --color-ink: #1c1e1d;
+  --color-ink-muted: #686d6a;
+  --color-stamp-red: #b23a2e;
+  --color-stamp-green: #3f6b4f;
+  --color-stamp-amber: #d6800a;
+
+  --font-sans: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, monospace;
+
+  --radius-card: 12px;
+  --radius-btn: 8px;
+  --radius-input: 6px;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
