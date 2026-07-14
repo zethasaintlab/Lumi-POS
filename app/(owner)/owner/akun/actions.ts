@@ -2,8 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { requireOwner } from '@/lib/auth/guards'
 
 const createSchema = z.object({
   name: z.string().trim().min(1, 'Nama wajib diisi.'),
@@ -14,23 +14,11 @@ const createSchema = z.object({
 
 export type CreateAccountState = { error?: string; ok?: boolean }
 
-/** Defense-in-depth: server actions are callable endpoints, so re-verify the
- *  caller is an owner even though middleware guards the /owner route. */
-async function assertOwner() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) throw new Error('Tidak terautentikasi.')
-  const { data } = await supabase.from('users').select('role').eq('id', user.id).single()
-  if (data?.role !== 'owner') throw new Error('Akses ditolak.')
-}
-
 export async function createAccount(
   _prev: CreateAccountState,
   formData: FormData,
 ): Promise<CreateAccountState> {
-  await assertOwner()
+  await requireOwner()
 
   const parsed = createSchema.safeParse({
     name: formData.get('name'),
@@ -70,7 +58,7 @@ export async function createAccount(
 }
 
 export async function setAccountActive(userId: string, isActive: boolean) {
-  await assertOwner()
+  await requireOwner()
   const admin = createAdminClient()
   await admin.from('users').update({ is_active: isActive }).eq('id', userId)
   revalidatePath('/owner/akun')
