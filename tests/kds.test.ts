@@ -76,34 +76,37 @@ afterAll(async () => {
 })
 
 describe('KDS status transitions (M4)', () => {
-  it('dapur advances confirmed → in_kitchen → ready → completed, and completed_at is stamped', async () => {
+  it('dapur advances confirmed → in_kitchen → ready → completed via advance_order, completed_at stamped', async () => {
     const order = await makeConfirmedOrder()
     const dapur = await signIn(users.dapur.email)
 
-    expect((await dapur.from('orders').update({ status: 'in_kitchen' }).eq('id', order).eq('status', 'confirmed')).error).toBeNull()
+    expect((await dapur.rpc('advance_order', { p_order_id: order })).error).toBeNull()
     expect((await statusOf(order)).status).toBe('in_kitchen')
 
-    expect((await dapur.from('orders').update({ status: 'ready' }).eq('id', order).eq('status', 'in_kitchen')).error).toBeNull()
+    expect((await dapur.rpc('advance_order', { p_order_id: order })).error).toBeNull()
     expect((await statusOf(order)).status).toBe('ready')
 
-    expect((await dapur.from('orders').update({ status: 'completed' }).eq('id', order).eq('status', 'ready')).error).toBeNull()
+    expect((await dapur.rpc('advance_order', { p_order_id: order })).error).toBeNull()
     const done = await statusOf(order)
     expect(done.status).toBe('completed')
     expect(done.completed_at).not.toBeNull()
   })
 
-  it('dapur cannot move an order backward to draft (RLS with-check)', async () => {
+  it('advancing an already-completed order is rejected', async () => {
     const order = await makeConfirmedOrder()
     const dapur = await signIn(users.dapur.email)
-    const res = await dapur.from('orders').update({ status: 'draft' }).eq('id', order).eq('status', 'confirmed')
+    await dapur.rpc('advance_order', { p_order_id: order }) // in_kitchen
+    await dapur.rpc('advance_order', { p_order_id: order }) // ready
+    await dapur.rpc('advance_order', { p_order_id: order }) // completed
+    const res = await dapur.rpc('advance_order', { p_order_id: order })
     expect(res.error).not.toBeNull()
-    expect((await statusOf(order)).status).toBe('confirmed')
   })
 
-  it('kasir cannot change a confirmed order (kasir RLS is draft-only)', async () => {
+  it('kasir cannot advance an order (role guard)', async () => {
     const order = await makeConfirmedOrder()
     const kasir = await signIn(users.kasir.email)
-    await kasir.from('orders').update({ status: 'in_kitchen' }).eq('id', order)
+    const res = await kasir.rpc('advance_order', { p_order_id: order })
+    expect(res.error).not.toBeNull()
     expect((await statusOf(order)).status).toBe('confirmed') // unchanged
   })
 })

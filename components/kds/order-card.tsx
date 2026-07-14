@@ -33,7 +33,7 @@ export function OrderCard({ order }: { order: KdsOrder }) {
 
   async function advance() {
     setPending(true)
-    await advanceOrder({ orderId: order.id, from: order.status })
+    await advanceOrder({ orderId: order.id })
     setPending(false)
     // Immediate local update; other devices update via realtime.
     qc.invalidateQueries({ queryKey: ['orders', 'kds'] })
