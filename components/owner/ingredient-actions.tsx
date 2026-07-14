@@ -49,7 +49,7 @@ function DialogForm({
       </button>
       <dialog
         ref={ref}
-        className="w-[22rem] max-w-[calc(100vw-2rem)] rounded-card bg-white p-0 backdrop:bg-black/40"
+        className="m-auto w-[22rem] max-w-[calc(100vw-2rem)] rounded-card bg-white p-0 backdrop:bg-black/40"
       >
         <form action={formAction} className="space-y-4 p-6">
           <h3 className="font-mono text-base font-semibold text-ink">{title}</h3>
