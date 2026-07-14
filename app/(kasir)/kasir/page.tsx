@@ -1,17 +1,20 @@
-import { signOut } from '@/lib/actions/auth'
+import { createClient } from '@/lib/supabase/server'
+import { KasirScreen } from '@/components/kasir/kasir-screen'
 
-export default function KasirPage() {
-  return (
-    <main className="min-h-dvh p-6">
-      <header className="flex items-center justify-between">
-        <h1 className="font-mono text-xl font-semibold text-ink">Layar Kasir</h1>
-        <form action={signOut}>
-          <button className="min-h-11 rounded-btn border border-ink-muted/40 px-3 text-sm text-ink hover:bg-black/5">
-            Keluar
-          </button>
-        </form>
-      </header>
-      <p className="mt-6 text-sm text-ink-muted">Alur order dibangun di M3.</p>
-    </main>
-  )
+export default async function KasirPage() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('products')
+    .select('id, name, price, category')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+
+  const products = (data ?? []).map((p) => ({
+    id: p.id as string,
+    name: p.name as string,
+    price: Number(p.price),
+    category: (p.category as string | null) ?? null,
+  }))
+
+  return <KasirScreen products={products} />
 }
