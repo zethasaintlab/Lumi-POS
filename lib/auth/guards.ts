@@ -28,3 +28,11 @@ export async function requireStaff() {
   if (role !== 'kasir' && role !== 'owner') throw new Error('Akses ditolak.')
   return { supabase, userId: user.id }
 }
+
+/** Ensures the caller is dapur or owner (staff who run the KDS). */
+export async function requireDapur() {
+  const { supabase, user, role } = await currentUserRole()
+  if (!user) throw new Error('Tidak terautentikasi.')
+  if (role !== 'dapur' && role !== 'owner') throw new Error('Akses ditolak.')
+  return { supabase, userId: user.id }
+}

@@ -1,17 +1,27 @@
-import { signOut } from '@/lib/actions/auth'
+import { createClient } from '@/lib/supabase/server'
+import { KdsBoard } from '@/components/kds/kds-board'
+import type { KdsOrder, KdsStatus } from '@/lib/queries/kds'
 
-export default function DapurPage() {
-  return (
-    <main className="min-h-dvh p-6">
-      <header className="flex items-center justify-between">
-        <h1 className="font-mono text-xl font-semibold text-ink">KDS Board</h1>
-        <form action={signOut}>
-          <button className="min-h-11 rounded-btn border border-ink-muted/40 px-3 text-sm text-ink hover:bg-black/5">
-            Keluar
-          </button>
-        </form>
-      </header>
-      <p className="mt-6 text-sm text-ink-muted">Kitchen Display System dibangun di M4.</p>
-    </main>
-  )
+export default async function DapurPage() {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('orders')
+    .select('id, order_number, status, confirmed_at, created_at, order_items(qty, products(name))')
+    .in('status', ['confirmed', 'in_kitchen', 'ready'])
+    .order('created_at', { ascending: true })
+
+  const initial: KdsOrder[] = (data ?? []).map((o) => ({
+    id: o.id as string,
+    orderNumber: o.order_number as string,
+    status: o.status as KdsStatus,
+    confirmedAt: (o.confirmed_at as string | null) ?? null,
+    items: ((o.order_items ?? []) as { qty: number; products: { name: string } | { name: string }[] | null }[]).map(
+      (it) => {
+        const product = Array.isArray(it.products) ? it.products[0] : it.products
+        return { qty: Number(it.qty), name: product?.name ?? 'Produk' }
+      },
+    ),
+  }))
+
+  return <KdsBoard initial={initial} />
 }
