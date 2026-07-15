@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import type { RealtimeChannel } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/client'
 
 export type KdsStatus = 'confirmed' | 'in_kitchen' | 'ready'
@@ -57,20 +58,36 @@ export function useKdsOrders(initial: KdsOrder[]) {
 /** Subscribe to orders changes; each event just invalidates the board query
  *  (Aturan Keras #5 — event is a signal, never a data source). On every
  *  (re)subscribe — initial connect and after an auto-reconnect — invalidate for
- *  a full resync, so orders confirmed while offline aren't lost. */
+ *  a full resync, so orders confirmed while offline aren't lost.
+ *
+ *  postgres_changes enforces RLS against the *socket's* identity. On a fresh page
+ *  load the session is restored from cookies as INITIAL_SESSION, which supabase-js
+ *  does NOT feed to realtime.setAuth (only SIGNED_IN / TOKEN_REFRESHED do). Without
+ *  the token the socket is anonymous, dapur's RLS matches no rows, and zero events
+ *  arrive. So push the current token to the socket before subscribing. */
 export function useKdsRealtime() {
   const qc = useQueryClient()
   useEffect(() => {
     const supabase = createClient()
     const invalidate = () => qc.invalidateQueries({ queryKey: KDS_KEY })
-    const channel = supabase
-      .channel('orders-kds')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') invalidate()
-      })
+    let channel: RealtimeChannel | undefined
+    let cancelled = false
+
+    ;(async () => {
+      const { data } = await supabase.auth.getSession()
+      await supabase.realtime.setAuth(data.session?.access_token ?? null)
+      if (cancelled) return
+      channel = supabase
+        .channel('orders-kds')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, invalidate)
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') invalidate()
+        })
+    })()
+
     return () => {
-      supabase.removeChannel(channel)
+      cancelled = true
+      if (channel) supabase.removeChannel(channel)
     }
   }, [qc])
 }
